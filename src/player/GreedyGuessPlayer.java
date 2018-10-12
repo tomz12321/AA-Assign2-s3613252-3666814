@@ -1,105 +1,270 @@
 package player;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
+import java.util.Objects;
 
-import java.util.Scanner;
-import world.OppWorld;
+import ship.Ship;
 import world.World;
 import world.World.Coordinate;
+import world.World.ShipLocation;
 
 /**
  * Greedy guess player (task B).
  * Please implement this class.
  *
- * @author Youhan Xia, Jeffrey Chan
+ * @author Skeleton provided by Youhan Xia, Jeffrey Chan, function implemented by Jyh-woei Yang (s3613252) and YuJue Zou (s3666814)
  */
-public class GreedyGuessPlayer extends Guesser implements Player{
+public class GreedyGuessPlayer implements Player{
 
-    public List<Guess> checkerBoardGuesses;
+	private int numRow;
+	private int numColumn;
+	
+	private Cell[][] board;
+	private LinkedList<Cell> huntGuess;
 
-    @Override
+	private List<OwnShip> ships;
+	private final int numShip = 5;
+	
+	private boolean isHit;
+	private LinkedList<Cell> target;
+    
+
+	@Override
     public void initialisePlayer(World world) {
-        // To be implemented.
-        this.myWorld = world;
-        this.opponentsWorld = new OppWorld(world.numRow, world.numColumn, true);
-        this.hitsToMyFleet = new ArrayList<>();
-        this.checkerBoardGuesses = new ArrayList<>();
-        enumerateGuesses(checkerBoardGuesses);
-    } // end of initialisePlayer()
+        this.numRow = world.numRow;
+    	this.numColumn = world.numColumn;
+    	
+    	this.board = new Cell[numRow][numColumn];
+    	
+    	this.ships = new ArrayList<>(numShip);
+    	this.huntGuess = new LinkedList<>();
+    	this.isHit = false;
+    	this.target = new LinkedList();
 
-        private void enumerateGuesses(List<Guess> list) {
-        for(int row = 0; row < myWorld.numRow; ++row){
-            for(int col = row%2; col < myWorld.numColumn; col+=2){
-                Guess g = new Guess();
-                g.row = row;
-                g.column = col;
-                list.add(g);
-            }
-        }
-    }
+    	//initialize ShipLoc
+    	for(ShipLocation sl : world.shipLocations) {
+    		ships.add(new OwnShip(sl.ship, sl.coordinates));
+    	}
+    	
+    	//initialize board
+    	for(int i = 0; i < numRow; i++) {
+    		for(int j = 0; j < numColumn; j++) {
+    			board[i][j] = new Cell(i, j);
+    		}
+    	}
+    	
+    	//add adjacent Cells for cells
+		for(int i = 0; i < numRow; i++) {
+			for(int j = 0; j < numColumn-1; j++) {
+				board[i][j].adjC.add(board[i][j+1]);
+				board[j][i].adjC.add(board[j+1][i]);
+				board[i][numColumn-1-j].adjC.add(board[i][numColumn-2-j]);
+				board[numColumn-1-j][i].adjC.add(board[numColumn-2-j][i]);
+			}
+		}
+		
+		//initialize huntGuess
+		for(int i = 0; i < numRow; i++) {
+			for(int j = 0; j < numColumn; j++) {
+				if((i + j) % 2 == 0) 
+                    this.huntGuess.add(board[i][j]);
+			}
+		}
+		//shuffle huntGuess--> add some random
+		Collections.shuffle(huntGuess);
+		
+    } // end of initialisePlayer()
 
     @Override
     public Answer getAnswer(Guess guess) {
-        // To be implemented.
-        
-        // dummy return
-        return null;
+        // implemented done by YuJue
+    	if(guess == null) return null;
+    	Answer answer = new Answer();
+    	Coordinate co = new World().new Coordinate();
+    	co.column = guess.column;
+    	co.row = guess.row;
+    	
+    	for(OwnShip os : this.ships) {
+    		for(World.Coordinate wc : os.shipLoc.keySet())
+    		{
+    			if(co.row == wc.row && co.column == wc.column) {
+    				answer.isHit = true;
+    				os.shipLoc.put(wc, Boolean.TRUE);
+        			if(os.isSunk()) {
+        				answer.shipSunk = os.ship;
+        			}
+        			break;
+    			}
+    		}
+    	}
+    	
+    	OwnShip toBeD = null;
+    	if(answer.shipSunk != null) {
+    		for(OwnShip os : this.ships) {
+    			if(os.ship.name().equals(answer.shipSunk.name())) toBeD = os;
+    		}
+    		if(toBeD != null)
+    			this.ships.remove(toBeD);    		
+    	}
+    	
+        return answer;
     } // end of getAnswer()
 
 
     @Override
     public Guess makeGuess() {
-        // To be implemented.
-        // ** Targeting mode **
-        if ( opponentsWorld.possibleTargets.size() > 0 )
-        {           
-            Guess g = new Guess();
-            Coordinate tempCoord = myWorld.new Coordinate();
-            tempCoord = opponentsWorld.possibleTargets.remove(0);
+    	Cell c = null;
+    	if(!this.isHit || (this.isHit && target.isEmpty())) {
+    		do {
+    			c = huntGuess.poll();
+    		}while(c.isHit);
+    		
+    		c.isHit = true;
+    		Guess g = c.guess;
+    		return g;
+    	}else {    			
+    		while(target.peek().adjC.isEmpty()) {
+    			target.pop();
+    			if(target.isEmpty()) {
+    				return makeGuess();
+    			}
+    		}
+    		c = target.peek();
 
-            g.row = tempCoord.row;
-            g.column = tempCoord.column;
-            
-            /*
-             *  Check if this possible target is in the checkBoardGuesses list
-             *  This is to avoid duplicate guesses
-             */
-            Guess tempGuess = new Guess();
-            for ( int i = 0; i < checkerBoardGuesses.size(); i++ ) 
-            {
-                tempGuess = checkerBoardGuesses.get(i);
-                if ( ( tempGuess.row == g.row ) && ( tempGuess.column == g.column ) )
-                {
-                    checkerBoardGuesses.remove(i);
-                    i = checkerBoardGuesses.size(); // TO EXIT LOOP
-                }
-            }
-            return g;
-        }
-
-        // ** Hunting mode **
-        Random random = new Random();
-        int index = random.nextInt(1000) % checkerBoardGuesses.size();
-        return checkerBoardGuesses.remove(index);
-        // dummy return
-        //return null;
+    		Cell ac = null;
+    		do {
+    			ac = c.adjC.poll();
+    			if(ac == null) {
+    				target.pop();
+    				return makeGuess();
+    			}
+    		}while(ac.isHit);
+    		ac.isHit = true;
+    		return ac.guess;
+    		}
     } // end of makeGuess()
 
 
     @Override
     public void update(Guess guess, Answer answer) {
-        // To be implemented.
+        // implemented done by YuJue
+    	if(answer == null) return;
+    	if(answer.isHit) {
+    		this.isHit = true;
+    		if(answer.shipSunk == null) {
+    			//find the relevant Cell
+    			
+    			for(Cell[] c : this.board) {
+    				for(Cell cell : c) {
+    					if(cell.row == guess.row && cell.colunm == guess.column) {
+    		    			this.target.add(cell);
+    		    			return;
+    					}
+    				}
+    			}
+    			
+    		}else {
+    			do {
+    				target.pop();
+    				if(target.isEmpty()) 
+                        break;
+    			}while(target.peek().adjC.isEmpty());
+    		}
+
+    		
+    	}
     } // end of update()
 
-
+  
     @Override
     public boolean noRemainingShips() {
-        // To be implemented.
-
-        // dummy return
-        return true;
+        // implemented done by YuJue
+    	return this.ships.isEmpty();
     } // end of noRemainingShips()
 
+    
+    private class OwnShip{
+    	private Ship ship;
+    	
+    	HashMap<World.Coordinate, Boolean> shipLoc;
+    	
+    	public OwnShip(Ship ship) {
+    		this.ship = ship;
+    	}
+    	
+    	
+    	public OwnShip(Ship ship, List<World.Coordinate> location) {
+    		this.ship = ship;
+    		shipLoc = new HashMap();
+    		
+    		//initialize ship location and set all of them as not being hit
+    		//true means being hit
+    		//false means not being hit
+    		for(Coordinate wc : location) {
+    			this.shipLoc.put(wc, Boolean.FALSE);
+    		}
+    	}
+    	
+    	public boolean isSunk() {
+    		boolean issunk = true;
+    		for(World.Coordinate wc : shipLoc.keySet()) {
+    			if(!shipLoc.get(wc).booleanValue()) {
+       				issunk = false;
+    			}
+    		}
+       		return issunk;
+    	}
+    	
+    	@Override
+    	public boolean equals(Object o) {
+    		if(this == o) 
+                return true;
+    		if(o == null || o.getClass() != this.getClass()) 
+                return false;
+    		
+    		OwnShip os = (OwnShip) o;
+    		return this.ship == os.ship;
+    	}
+    	
+    	@Override
+    	public int hashCode() {
+    		return Objects.hash(ship);
+    	}
+    } // end of class OwnShip
+    
+    
+    class Cell{
+    	int row, colunm;
+    	LinkedList<Cell> adjC;
+    	Guess guess;
+    	Coordinate coor;
+    	boolean isHit;
+    	
+    	public Cell(int row, int column) {
+    		this.row = row;
+    		this.colunm = column;
+    		this.adjC = new LinkedList<>();
+    		this.guess = new Guess();
+    		this.guess.row = row;
+    		this.guess.column = colunm;
+    		this.coor = new World().new Coordinate();
+    		coor.row = row;
+    		coor.column = column;
+    		isHit = false;
+    	}
+    	
+    	public void addAdj(Cell cell) {
+    		this.adjC.add(cell);
+    	}
+    	
+    	public LinkedList<Cell> getAdj(){
+    		return this.adjC;
+    	}
+    } // end of class Cell
+    
 } // end of class GreedyGuessPlayer
+    

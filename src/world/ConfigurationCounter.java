@@ -6,19 +6,34 @@ package world;
  * Numbers used for edge cases:
  * -1 Represents a shot has been fired on that coordinate
  * ????? Represents no possible ship combinations for that particular coordinate 
- * @author patstockwell
+ * @author Jyh-woei Yang
  *
  */
+
 public class ConfigurationCounter {
 	
 	public int[][] ShipConfigurationCounts;
 	public int shipSize;
+	//public int shiplength;
+	public int shiplength;
+	//public int shipwidth;
+	public int shipwidth;
 	public int rows;
 	public int columns;
+	public char mdirection;
+	public char sdirection;
 	
-	public ConfigurationCounter(int rows, int columns, int shipSize){
+	//ConfigurationCounter(int rows, int columns, int shipSize)
+	public ConfigurationCounter(int rows, int columns, int shiplength, int shipwidth, char mdirection, char sdirection){
 		this.ShipConfigurationCounts = new int[rows][columns];
-		this.shipSize = shipSize;
+		//this.shipSize = shipSize; (remove)
+		//this.shiplength = shiplength;
+		this.shiplength = shiplength;
+		//this.shipwidth = shipwidth;
+		this.shipwidth = shipwidth;
+		//this.direction = direction;
+		this.mdirection = mdirection;
+		this.sdirection = sdirection;
 		this.columns = columns;
 		this.rows = rows;
 		initializeArrayToZero();
